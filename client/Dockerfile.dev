@@ -1,0 +1,14 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package.json ./
+RUN npm install
+
+COPY . .
+
+# Default port for React Development Server
+EXPOSE 3000
+
+# Start the dev server
+CMD ["npm", "start"]

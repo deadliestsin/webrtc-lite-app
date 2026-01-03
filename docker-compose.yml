@@ -1,0 +1,31 @@
+services:
+  server:
+    build: ./server
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server:/app            # Map local folder to container folder
+      - /app/node_modules        # Bookmark: Don't overwrite container's node_modules
+    command: npm run dev         # Use nodemon (defined in your package.json)
+    networks:
+      - webrtc-net
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev # Use the Dev version we just created
+    ports:
+      - "3000:3000"              # React Dev server uses 3000, not 80
+    volumes:
+      - ./client:/app            # Sync your code live!
+      - /app/node_modules        # CRITICAL: Preserves container dependencies
+    environment:
+      - WATCHPACK_POLLING=true   # Needed for Windows to detect file changes
+    depends_on:
+      - server
+    networks:
+      - webrtc-net
+
+networks:
+  webrtc-net:
+    driver: bridge
