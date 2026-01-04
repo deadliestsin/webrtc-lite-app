@@ -15,6 +15,7 @@ const VideoFeed = ({ videoRef, stream, isMuted = false }) => {
   useEffect(() => {
     if (ref.current && stream) {
       ref.current.srcObject = stream;
+      ref.current.play().catch(e => console.error("Video play failed (autoplay policy):", e));
     }
   }, [stream, ref]);
 
@@ -30,7 +31,7 @@ const VideoFeed = ({ videoRef, stream, isMuted = false }) => {
     <CRTDistortion />
     <Box sx={{ 
       position: 'relative', 
-      width: '33%', 
+      width: '450px', 
       aspectRatio: '4/3', 
       borderRadius: '20px', 
       backgroundColor: '#000',

@@ -20,7 +20,7 @@ import { callUser, handleOffer, handleAnswer, handleIceCandidate } from './webrt
 const socket = io(`http://${window.location.hostname}:5000`);
 
 const App = () => {
-  const [roomId, setRoomId] = useState('General');
+  const [roomId, setRoomId] = useState(null);
   const [rooms, setRooms] = useState(['General', 'Tech']);
   const [username, setUsername] = useState('User-' + Math.floor(Math.random() * 1000));
   const [tempUsername, setTempUsername] = useState(username); // For input field buffering
@@ -34,9 +34,11 @@ const App = () => {
   const [localStream, setLocalStream] = useState(null);
   const [remotes, setRemotes] = useState([]); // Array of { username, stream }
   const peersRef = useRef(new Map()); // Map<username, RTCPeerConnection>
+  const [mediaReady, setMediaReady] = useState(false);
 
   // --- 1. SETUP SOCKETS & CHAT (Runs immediately, no camera needed) ---
   useEffect(() => {
+    if (!mediaReady || !roomId) return;
     console.log("Setting up socket listeners...");
     
     // Join the room immediately
@@ -56,7 +58,7 @@ const App = () => {
       socket.emit('leave_room', roomId);
       socket.off('receive_message');
     };
-  }, [roomId, username]);
+  }, [roomId, username, mediaReady]);
 
 
   // --- 2. SETUP MEDIA (Runs once on mount) ---
@@ -67,13 +69,16 @@ const App = () => {
         .then((stream) => {
           window.localStream = stream;
           setLocalStream(stream);
+          setMediaReady(true);
         })
         .catch((err) => {
           console.error("Error accessing media devices:", err);
           setStreamError("No camera/mic found. Chat will work, video will not.");
+          setMediaReady(true);
         });
     } else {
       setStreamError("Camera requires HTTPS. Video disabled.");
+      setMediaReady(true);
     }
   }, []);
 
@@ -87,12 +92,13 @@ const App = () => {
 
   // --- 3. SETUP WEBRTC SIGNALING (Runs when Room ID changes) ---
   useEffect(() => {
+    if (!mediaReady || !roomId) return;
     socket.on('user_joined', async (newUsername) => {
       console.log("User joined room:", newUsername);
       setMessages((prev) => [...prev, { text: `${newUsername} joined the room`, sender: 'System' }]);
       
-      // Limit to 5 remotes (1 local + 5 remotes = 6 total)
-      if (peersRef.current.size >= 5) {
+      // Limit to 1 remote (1 local + 1 remote = 2 total)
+      if (peersRef.current.size >= 1) {
         console.log("Room full for video, not connecting.");
         return;
       }
@@ -112,7 +118,7 @@ const App = () => {
 
     socket.on('offer', async (data) => {
       if (data.target !== username) return; // Ignore if not for me
-      if (peersRef.current.size >= 5) return; // Enforce limit on receiver side too
+      if (peersRef.current.size >= 1) return; // Enforce limit on receiver side too
       handleOffer(data, socket, roomId, username, handleRemoteStream, peersRef);
     });
 
@@ -133,7 +139,7 @@ const App = () => {
       socket.off('answer');
       socket.off('ice_candidate');
     };
-  }, [roomId, username]);
+  }, [roomId, username, mediaReady]);
 
   // --- 4. HEADER ANIMATION ---
   useEffect(() => {
@@ -221,6 +227,17 @@ const App = () => {
 
         {/* Main Content */}
         <Grid item xs={9} sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
+          {!roomId ? (
+            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <Typography variant="h2" sx={{ fontFamily: 'var(--theme-font)', color: 'var(--theme-accent)', mb: 2, textShadow: 'var(--theme-glow)' }}>
+                SYSTEM IDLE
+              </Typography>
+              <Typography variant="h6" sx={{ fontFamily: 'var(--theme-font)', color: 'var(--theme-secondary)' }}>
+                &lt; Select a frequency to connect /&gt;
+              </Typography>
+            </Box>
+          ) : (
+            <>
           <Typography variant="h5" gutterBottom>
             Room: {roomId}
           </Typography>
@@ -237,24 +254,22 @@ const App = () => {
             </Box>
           )}
 
-          {/* 3x2 Grid Layout (6 Monitors) */}
-          <Grid container spacing={2}>
+          {/* 2 Monitors Layout */}
+          <Grid container spacing={1} justifyContent="center">
             {/* Monitor 1: Local User */}
-            <Grid item xs={4}>
+            <Grid item>
               <VideoFeed stream={localStream} isMuted={true} />
             </Grid>
-            {/* Monitors 2-6: Remote Users */}
-            {remotes.map((remote) => (
-              <Grid item xs={4} key={remote.username}>
-                <VideoFeed stream={remote.stream} />
+            {/* Monitor 2: Remote User or Filler */}
+            {remotes.length > 0 ? (
+              <Grid item>
+                <VideoFeed stream={remotes[0].stream} />
               </Grid>
-            ))}
-            {/* Fillers for empty slots (up to 6 total) */}
-            {[...Array(Math.max(0, 5 - remotes.length))].map((_, i) => (
-              <Grid item xs={4} key={`filler-${i}`}>
+            ) : (
+              <Grid item>
                 <VideoFeed />
               </Grid>
-            ))}
+            )}
           </Grid>
 
           <Box sx={{ mt: 4 }}>
@@ -316,6 +331,8 @@ const App = () => {
               </Box>
             </MatrixPaper>
           </Box>
+            </>
+          )}
         </Grid>
       </Grid>
     </Box>
