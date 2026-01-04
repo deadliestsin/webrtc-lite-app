@@ -17,7 +17,7 @@ const Sidebar = ({
   handleDeleteRoom
 }) => {
   return (
-    <Grid item xs={3} sx={{ borderRight: '1px solid var(--theme-secondary)', bgcolor: 'var(--theme-bg)', display: 'flex', flexDirection: 'column' }}>
+    <Grid item xs={3} sx={{ borderRight: '1px solid var(--theme-accent)', bgcolor: 'var(--theme-bg)', display: 'flex', flexDirection: 'column' }}>
       <SidebarHeader 
         tempUsername={tempUsername} 
         setTempUsername={setTempUsername} 

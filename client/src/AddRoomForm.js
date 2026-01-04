@@ -4,7 +4,7 @@ import MatrixButton from './MatrixButton';
 
 const AddRoomForm = ({ newRoomName, setNewRoomName, handleAddRoom }) => {
   return (
-    <Box sx={{ p: 2, borderTop: '1px solid var(--theme-secondary)', display: 'flex', gap: 1 }}>
+    <Box sx={{ p: 2, borderTop: '1px solid var(--theme-accent)', display: 'flex', gap: 1 }}>
       <TextField
         size="small"
         placeholder="New Room"
@@ -14,7 +14,7 @@ const AddRoomForm = ({ newRoomName, setNewRoomName, handleAddRoom }) => {
         sx={{
           '& .MuiOutlinedInput-root': {
             color: 'var(--theme-accent)',
-            fontFamily: 'monospace',
+            fontFamily: 'var(--theme-font)',
             '& fieldset': { borderColor: 'var(--theme-secondary)' },
             '&:hover fieldset': { borderColor: 'var(--theme-accent)', boxShadow: 'var(--theme-glow)' },
             '&.Mui-focused fieldset': { borderColor: 'var(--theme-accent)', boxShadow: 'var(--theme-glow)' },

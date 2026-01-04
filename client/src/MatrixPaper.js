@@ -4,7 +4,7 @@ const MatrixPaper = styled(Paper)({
   backgroundColor: 'var(--theme-bg)',
   border: '1px solid var(--theme-accent)',
   color: 'var(--theme-accent)',
-  fontFamily: 'monospace',
+  fontFamily: 'var(--theme-font)',
   boxShadow: 'var(--theme-glow)',
 });
 

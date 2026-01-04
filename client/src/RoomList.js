@@ -38,7 +38,7 @@ const RoomList = ({ rooms, roomId, setRoomId, handleDeleteRoom }) => {
               '&:hover': { bgcolor: 'var(--theme-bg-hover)' }
             }}
           >
-            <ListItemText primary={room} primaryTypographyProps={{ fontFamily: 'monospace', color: 'var(--theme-accent)' }} />
+            <ListItemText primary={room} primaryTypographyProps={{ fontFamily: 'var(--theme-font)', color: 'var(--theme-accent)' }} />
           </ListItemButton>
         </ListItem>
       ))}

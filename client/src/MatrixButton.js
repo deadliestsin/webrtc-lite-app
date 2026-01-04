@@ -5,7 +5,7 @@ const MatrixButton = styled(Button)({
   borderColor: 'var(--theme-accent)',
   border: '1px solid var(--theme-accent)',
   backgroundColor: 'transparent',
-  fontFamily: 'monospace',
+  fontFamily: 'var(--theme-font)',
   '&:hover': {
     backgroundColor: 'var(--theme-bg-hover)',
     boxShadow: 'var(--theme-glow)',
