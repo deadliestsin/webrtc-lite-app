@@ -6,6 +6,8 @@ services:
     volumes:
       - ./server:/app            # Map local folder to container folder
       - /app/node_modules        # Bookmark: Don't overwrite container's node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true # Ensure file changes are detected on Windows
     command: npm run dev         # Use nodemon (defined in your package.json)
     networks:
       - webrtc-net

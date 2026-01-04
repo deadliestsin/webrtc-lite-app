@@ -1,13 +1,54 @@
 # Dependencies
 node_modules/
-*/node_modules/
+**/node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+logs/
+
+# Build outputs
+dist/
+build/
+client/build/
+server/build/
+coverage/
 
 # Environment variables
 .env
+.env.local
+.env.*.local
 
 # Docker
 docker-compose.override.yml
+.env.docker
 
-# OS files
+# Operating system files
 .DS_Store
 Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Package manager artifacts
+.pnp/
+.pnp.js
+
+# Misc
+*.tmp
+*~
+
+# Notes:
+# - Keep package-lock.json / yarn.lock committed for reproducible installs
+# - Add any project-specific build/output folders here if you create them

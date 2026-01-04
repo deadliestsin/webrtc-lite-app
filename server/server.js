@@ -14,12 +14,22 @@ const io = new Server(server, {
   }
 });
 
+const users = {}; // Store users: socket.id -> username
+
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
-  socket.on('join_room', (roomId) => {
+  socket.on('join_room', ({ roomId, username }) => {
+    console.log(`User ${username} (${socket.id}) joined room: ${roomId}`);
     socket.join(roomId);
-    socket.to(roomId).emit('user_joined', socket.id);
+    users[socket.id] = username;
+    socket.to(roomId).emit('user_joined', username);
+  });
+
+  socket.on('leave_room', (roomId) => {
+    socket.leave(roomId);
+    const username = users[socket.id] || 'Anonymous';
+    socket.to(roomId).emit('user_left', username);
   });
 
   // Relay WebRTC Offers
@@ -42,8 +52,18 @@ io.on('connection', (socket) => {
     socket.to(data.roomId).emit('receive_message', data);
   });
 
+  socket.on('disconnecting', () => {
+    const username = users[socket.id] || 'Anonymous';
+    socket.rooms.forEach((room) => {
+      if (room !== socket.id) {
+        socket.to(room).emit('user_left', username);
+      }
+    });
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected');
+    delete users[socket.id];
   });
 });
 

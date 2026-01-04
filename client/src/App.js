@@ -1,10 +1,30 @@
 import React, { useEffect, useRef, useState } from 'react';
 import io from 'socket.io-client';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Container,
+  Grid,
+  Paper,
+  Box,
+  TextField,
+  Button,
+  Alert,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText
+} from '@mui/material';
 
 const socket = io('http://localhost:5000');
 
 const App = () => {
-  const [roomId, setRoomId] = useState('room1');
+  const [roomId, setRoomId] = useState('General');
+  const [rooms, setRooms] = useState(['General', 'Tech']);
+  const [username, setUsername] = useState('User-' + Math.floor(Math.random() * 1000));
+  const [tempUsername, setTempUsername] = useState(username); // For input field buffering
+  const [newRoomName, setNewRoomName] = useState('');
   const [messages, setMessages] = useState([]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [streamError, setStreamError] = useState(null); // To show if camera failed
@@ -22,7 +42,8 @@ const App = () => {
     console.log("Setting up socket listeners...");
     
     // Join the room immediately
-    socket.emit('join_room', roomId);
+    socket.emit('join_room', { roomId, username });
+    setMessages([]); // Clear chat when joining a new room
 
     // Chat Listeners
     socket.on('receive_message', (data) => {
@@ -32,22 +53,39 @@ const App = () => {
 
     // Cleanup listeners on unmount
     return () => {
+      socket.emit('leave_room', roomId);
       socket.off('receive_message');
     };
-  }, [roomId]);
+  }, [roomId, username]);
 
 
-  // --- 2. SETUP MEDIA & WEBRTC (Runs separately) ---
+  // --- 2. SETUP MEDIA (Runs once on mount) ---
   useEffect(() => {
-    // WebRTC Signaling Listeners need to be set up regardless of our camera status
-    // so we can at least RECEIVE video if the other person has a camera.
-    
-    socket.on('user_joined', async (userId) => {
-      console.log("User joined room:", userId);
+    // Initialize Camera
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then((stream) => {
+        if (userVideo.current) userVideo.current.srcObject = stream;
+        window.localStream = stream; 
+      })
+      .catch((err) => {
+        console.error("Error accessing media devices:", err);
+        setStreamError("No camera/mic found. Chat will work, video will not.");
+      });
+  }, []);
+
+  // --- 3. SETUP WEBRTC SIGNALING (Runs when Room ID changes) ---
+  useEffect(() => {
+    socket.on('user_joined', async (username) => {
+      console.log("User joined room:", username);
+      setMessages((prev) => [...prev, { text: `${username} joined the room`, sender: 'System' }]);
       // Only initiate call if we have a stream? 
       // For this PoC, we try to create an offer anyway, 
       // but without tracks if no stream exists.
       callUser(); 
+    });
+
+    socket.on('user_left', (username) => {
+      setMessages((prev) => [...prev, { text: `${username} left the room`, sender: 'System' }]);
     });
 
     socket.on('offer', async (data) => {
@@ -55,8 +93,10 @@ const App = () => {
     });
 
     socket.on('answer', (data) => {
-      if (peerRef.current) {
-        peerRef.current.setRemoteDescription(new RTCSessionDescription(data.sdp));
+      const currentPeer = peerRef.current;
+      if (currentPeer && currentPeer.signalingState === 'have-local-offer') {
+        currentPeer.setRemoteDescription(new RTCSessionDescription(data.sdp))
+          .catch(err => console.error("Failed to set remote answer:", err));
       }
     });
 
@@ -66,28 +106,14 @@ const App = () => {
       }
     });
 
-    // Initialize Camera
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        // If successful, show local video
-        if (userVideo.current) userVideo.current.srcObject = stream;
-        
-        // Save stream to ref or state if you want to add tracks later
-        // For this simple PoC, we will assume if stream exists, we use it.
-        window.localStream = stream; 
-      })
-      .catch((err) => {
-        console.error("Error accessing media devices:", err);
-        setStreamError("No camera/mic found. Chat will work, video will not.");
-      });
-
     return () => {
       socket.off('user_joined');
+      socket.off('user_left');
       socket.off('offer');
       socket.off('answer');
       socket.off('ice_candidate');
     };
-  }, []);
+  }, [roomId]);
 
   // --- WebRTC Functions ---
 
@@ -142,7 +168,7 @@ const App = () => {
 
   const sendMessage = () => {
     if (currentMessage !== "") {
-        const msgData = { roomId, text: currentMessage, sender: 'User ' + socket.id.substr(0, 4) };
+        const msgData = { roomId, text: currentMessage, sender: username };
         console.log("Sending message:", msgData);
         socket.emit('send_message', msgData);
         setMessages((prev) => [...prev, msgData]);
@@ -150,46 +176,138 @@ const App = () => {
     }
   };
 
+  const handleAddRoom = () => {
+    if (newRoomName && !rooms.includes(newRoomName)) {
+      setRooms([...rooms, newRoomName]);
+      setNewRoomName('');
+    }
+  };
+
+  const handleDeleteRoom = (roomToDelete) => {
+    const updatedRooms = rooms.filter(r => r !== roomToDelete);
+    setRooms(updatedRooms);
+    // If we deleted the current room, switch to the first available one
+    if (roomId === roomToDelete && updatedRooms.length > 0) {
+      setRoomId(updatedRooms[0]);
+    }
+  };
+
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>WebRTC Live Update!</h1>
-      
-      {streamError && <div style={{ color: 'red', marginBottom: '10px' }}>{streamError}</div>}
+    <Box sx={{ flexGrow: 1, height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            WebRTC Live Update!
+          </Typography>
+        </Toolbar>
+      </AppBar>
 
-      <div style={{ display: 'flex', gap: '20px' }}>
-        {/* Local Video */}
-        <div>
-            <h3>Local</h3>
-            <video playsInline muted ref={userVideo} autoPlay style={{ width: '300px', height: '225px', border: '1px solid black', backgroundColor: '#eee' }} />
-        </div>
-        {/* Remote Video */}
-        <div>
-            <h3>Remote</h3>
-            <video playsInline ref={partnerVideo} autoPlay style={{ width: '300px', height: '225px', border: '1px solid red', backgroundColor: '#eee' }} />
-        </div>
-      </div>
-
-      <div style={{ marginTop: '20px' }}>
-        <h3>Chat Room: {roomId}</h3>
-        <div style={{ border: '1px solid gray', height: '150px', overflowY: 'scroll', marginBottom: '10px', padding: '5px' }}>
-          {messages.map((msg, i) => (
-            <p key={i} style={{ margin: '5px 0' }}>
-                <strong>{msg.sender}:</strong> {msg.text}
-            </p>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: '5px' }}>
-            <input 
-                value={currentMessage} 
-                onChange={(e) => setCurrentMessage(e.target.value)} 
-                onKeyPress={(e) => { if(e.key === 'Enter') sendMessage() }}
-                placeholder="Type a message..."
-                style={{ flex: 1 }}
+      <Grid container sx={{ flexGrow: 1, overflow: 'hidden' }}>
+        {/* Sidebar */}
+        <Grid item xs={3} sx={{ borderRight: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
+            <Typography variant="h6">Rooms</Typography>
+            <TextField
+              label="My Name"
+              variant="standard"
+              value={tempUsername}
+              onChange={(e) => setTempUsername(e.target.value)}
+              onBlur={() => setUsername(tempUsername)}
+              fullWidth
             />
-            <button onClick={sendMessage}>Send</button>
-        </div>
-      </div>
-    </div>
+          </Box>
+          <List sx={{ flexGrow: 1, overflow: 'auto' }}>
+            {rooms.map((room) => (
+              <ListItem key={room} disablePadding secondaryAction={
+                <Button size="small" color="error" onClick={() => handleDeleteRoom(room)} sx={{ minWidth: '30px' }}>
+                  X
+                </Button>
+              }>
+                <ListItemButton selected={roomId === room} onClick={() => setRoomId(room)}>
+                  <ListItemText primary={room} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+          <Box sx={{ p: 2, borderTop: '1px solid #e0e0e0', display: 'flex', gap: 1 }}>
+            <TextField
+              size="small"
+              placeholder="New Room"
+              value={newRoomName}
+              onChange={(e) => setNewRoomName(e.target.value)}
+              fullWidth
+            />
+            <Button variant="contained" onClick={handleAddRoom}>+</Button>
+          </Box>
+        </Grid>
+
+        {/* Main Content */}
+        <Grid item xs={9} sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
+          <Typography variant="h5" gutterBottom>
+            Room: {roomId}
+          </Typography>
+
+          {streamError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {streamError}
+            </Alert>
+          )}
+
+          <Grid container spacing={3}>
+            {/* Local Video */}
+            <Grid item xs={6}>
+              <Paper elevation={3} sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <Typography variant="h6" gutterBottom>Local</Typography>
+                <Box
+                  component="video"
+                  playsInline
+                  muted
+                  ref={userVideo}
+                  autoPlay
+                  sx={{ width: '100%', height: 'auto', bgcolor: '#eee', borderRadius: 1 }}
+                />
+              </Paper>
+            </Grid>
+            {/* Remote Video */}
+            <Grid item xs={6}>
+              <Paper elevation={3} sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <Typography variant="h6" gutterBottom>Remote</Typography>
+                <Box
+                  component="video"
+                  playsInline
+                  ref={partnerVideo}
+                  autoPlay
+                  sx={{ width: '100%', height: 'auto', bgcolor: '#eee', borderRadius: 1, border: '1px solid red' }}
+                />
+              </Paper>
+            </Grid>
+          </Grid>
+
+          <Box sx={{ mt: 4 }}>
+            <Paper variant="outlined" sx={{ height: 200, overflowY: 'auto', p: 2, mb: 2, bgcolor: '#fafafa' }}>
+              {messages.map((msg, i) => (
+                <Typography key={i} variant="body1" gutterBottom>
+                  <strong>{msg.sender}:</strong> {msg.text}
+                </Typography>
+              ))}
+            </Paper>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="Type a message..."
+                value={currentMessage}
+                onChange={(e) => setCurrentMessage(e.target.value)}
+                onKeyPress={(e) => { if(e.key === 'Enter') sendMessage() }}
+              />
+              <Button variant="contained" color="primary" onClick={sendMessage} size="large">
+                Send
+              </Button>
+            </Box>
+          </Box>
+        </Grid>
+      </Grid>
+    </Box>
   );
 };
 
