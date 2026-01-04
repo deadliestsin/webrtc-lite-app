@@ -4,6 +4,9 @@ A minimal WebRTC + Socket.io proof-of-concept app for video chat and text messag
 
 ## Features ✅
 - Peer-to-peer video (WebRTC) and chat via Socket.io
+- **New:** Modern UI built with Material UI (MUI)
+- **New:** Sidebar for creating, joining, and deleting rooms
+- **New:** Custom usernames and system notifications (Join/Leave)
 - Works even when a user has no camera (chat remains functional)
 - Dockerized for easy local setup
 
@@ -46,15 +49,17 @@ Then open two browser windows/tabs to `http://localhost:3000` and join the same 
 ## Important Notes 💡
 - The client connects to the signaling server at `http://localhost:5000` (see `client/src/App.js`). Ensure the server is running or adjust the URL if you change ports.
 - If a user has no camera or camera access is blocked, the app falls back to chat-only mode and displays a notice.
+- **Video Limitation:** The app currently supports **1-on-1 video calls**. If a third user joins a room, they can participate in the chat, but the video connection will reset to the most recent pair of users.
 - For testing WebRTC locally, use separate browser windows (same machine) or two different devices on the same network.
 
 ## Troubleshooting ⚠️
 - "No camera/mic found" message: This is expected if the browser blocks or the device lacks a camera. Chat still works.
 - Ports in use: change ports in `docker-compose.yml` or the app config if needed.
+- **Docker on Windows:** If changes aren't reflecting, ensure `CHOKIDAR_USEPOLLING=true` is set in your environment (already included in `docker-compose.yml`).
 
 ## Development Tips ✨
 - The React app is in `/client` and the server (Socket.io) is in `/server`.
-- To change room behavior, edit `roomId` in `client/src/App.js` or add UI controls to pick/enter a room.
+- The UI now uses `@mui/material`. Check `client/src/App.js` for the main layout logic including the sidebar and video grid.
 
 ## Contributing
 Feel free to open issues or submit PRs to improve functionality or documentation.

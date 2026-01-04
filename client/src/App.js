@@ -11,11 +11,10 @@ import {
   TextField,
   Button,
   Alert,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText
 } from '@mui/material';
+import MatrixButton from './MatrixButton';
+import MatrixPaper from './MatrixPaper';
+import Sidebar from './Sidebar';
 
 const socket = io('http://localhost:5000');
 
@@ -194,7 +193,7 @@ const App = () => {
 
   return (
     <Box sx={{ flexGrow: 1, height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <AppBar position="static">
+      <AppBar position="static" sx={{ bgcolor: 'var(--theme-secondary)' }}>
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             WebRTC Live Update!
@@ -204,42 +203,18 @@ const App = () => {
 
       <Grid container sx={{ flexGrow: 1, overflow: 'hidden' }}>
         {/* Sidebar */}
-        <Grid item xs={3} sx={{ borderRight: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
-            <Typography variant="h6">Rooms</Typography>
-            <TextField
-              label="My Name"
-              variant="standard"
-              value={tempUsername}
-              onChange={(e) => setTempUsername(e.target.value)}
-              onBlur={() => setUsername(tempUsername)}
-              fullWidth
-            />
-          </Box>
-          <List sx={{ flexGrow: 1, overflow: 'auto' }}>
-            {rooms.map((room) => (
-              <ListItem key={room} disablePadding secondaryAction={
-                <Button size="small" color="error" onClick={() => handleDeleteRoom(room)} sx={{ minWidth: '30px' }}>
-                  X
-                </Button>
-              }>
-                <ListItemButton selected={roomId === room} onClick={() => setRoomId(room)}>
-                  <ListItemText primary={room} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-          <Box sx={{ p: 2, borderTop: '1px solid #e0e0e0', display: 'flex', gap: 1 }}>
-            <TextField
-              size="small"
-              placeholder="New Room"
-              value={newRoomName}
-              onChange={(e) => setNewRoomName(e.target.value)}
-              fullWidth
-            />
-            <Button variant="contained" onClick={handleAddRoom}>+</Button>
-          </Box>
-        </Grid>
+        <Sidebar
+          rooms={rooms}
+          roomId={roomId}
+          setRoomId={setRoomId}
+          tempUsername={tempUsername}
+          setTempUsername={setTempUsername}
+          setUsername={setUsername}
+          newRoomName={newRoomName}
+          setNewRoomName={setNewRoomName}
+          handleAddRoom={handleAddRoom}
+          handleDeleteRoom={handleDeleteRoom}
+        />
 
         {/* Main Content */}
         <Grid item xs={9} sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
@@ -256,7 +231,7 @@ const App = () => {
           <Grid container spacing={3}>
             {/* Local Video */}
             <Grid item xs={6}>
-              <Paper elevation={3} sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Paper elevation={3} sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', bgcolor: 'var(--theme-bg)', border: '1px solid var(--theme-secondary)', color: 'var(--theme-accent)' }}>
                 <Typography variant="h6" gutterBottom>Local</Typography>
                 <Box
                   component="video"
@@ -264,33 +239,33 @@ const App = () => {
                   muted
                   ref={userVideo}
                   autoPlay
-                  sx={{ width: '100%', height: 'auto', bgcolor: '#eee', borderRadius: 1 }}
+                  sx={{ width: '100%', height: 'auto', bgcolor: 'black', borderRadius: 1, border: '1px solid var(--theme-secondary)' }}
                 />
               </Paper>
             </Grid>
             {/* Remote Video */}
             <Grid item xs={6}>
-              <Paper elevation={3} sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Paper elevation={3} sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', bgcolor: 'var(--theme-bg)', border: '1px solid var(--theme-secondary)', color: 'var(--theme-accent)' }}>
                 <Typography variant="h6" gutterBottom>Remote</Typography>
                 <Box
                   component="video"
                   playsInline
                   ref={partnerVideo}
                   autoPlay
-                  sx={{ width: '100%', height: 'auto', bgcolor: '#eee', borderRadius: 1, border: '1px solid red' }}
+                  sx={{ width: '100%', height: 'auto', bgcolor: 'black', borderRadius: 1, border: '1px solid var(--theme-secondary)' }}
                 />
               </Paper>
             </Grid>
           </Grid>
 
           <Box sx={{ mt: 4 }}>
-            <Paper variant="outlined" sx={{ height: 200, overflowY: 'auto', p: 2, mb: 2, bgcolor: '#fafafa' }}>
+            <MatrixPaper variant="outlined" sx={{ height: 200, overflowY: 'auto', p: 2, mb: 2 }}>
               {messages.map((msg, i) => (
-                <Typography key={i} variant="body1" gutterBottom>
-                  <strong>{msg.sender}:</strong> {msg.text}
+                <Typography key={i} variant="body1" gutterBottom sx={{ fontFamily: 'monospace' }}>
+                  <strong>{msg.sender}&gt;</strong> {msg.text}
                 </Typography>
               ))}
-            </Paper>
+            </MatrixPaper>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <TextField
                 fullWidth
@@ -299,10 +274,19 @@ const App = () => {
                 value={currentMessage}
                 onChange={(e) => setCurrentMessage(e.target.value)}
                 onKeyPress={(e) => { if(e.key === 'Enter') sendMessage() }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: 'var(--theme-accent)',
+                    fontFamily: 'monospace',
+                    '& fieldset': { borderColor: 'var(--theme-secondary)' },
+                    '&:hover fieldset': { borderColor: 'var(--theme-accent)' },
+                    '&.Mui-focused fieldset': { borderColor: 'var(--theme-accent)', boxShadow: 'var(--theme-glow)' },
+                  }
+                }}
               />
-              <Button variant="contained" color="primary" onClick={sendMessage} size="large">
+              <MatrixButton onClick={sendMessage} size="large">
                 Send
-              </Button>
+              </MatrixButton>
             </Box>
           </Box>
         </Grid>

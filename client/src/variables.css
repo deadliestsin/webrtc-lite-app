@@ -1,0 +1,17 @@
+:root {
+  /* 60% Dominant: Cold Steel / Deep Charcoal */
+  --theme-bg: #0B1015;
+  /* 30% Secondary: Industrial Blue-Grey */
+  --theme-secondary: #4B5869;
+  /* 10% Accent: Static White / Pale Blue */
+  --theme-accent: #A7B3C2;
+
+  /* Derived Styles */
+  --theme-bg-hover: rgba(167, 179, 194, 0.1);
+  --theme-glow: 0 0 8px rgba(167, 179, 194, 0.3);
+}
+
+body {
+  background-color: var(--theme-bg);
+  color: var(--theme-accent);
+}
