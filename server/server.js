@@ -9,7 +9,7 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Allow all origins for this PoC
+    origin: process.env.CLIENT_URL || "*", // Restrict to specific domain in production
     methods: ["GET", "POST"]
   }
 });

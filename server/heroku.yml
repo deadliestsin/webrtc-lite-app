@@ -1,0 +1,9 @@
+# server/heroku.yml
+build:
+  docker:
+    web: Dockerfile
+setup:
+  config:
+    # Set this to your client's URL in the Heroku dashboard
+    # e.g., https://your-client-app-name.herokuapp.com
+    CLIENT_URL: ''

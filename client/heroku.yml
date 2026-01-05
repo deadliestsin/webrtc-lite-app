@@ -1,0 +1,11 @@
+# client/heroku.yml
+build:
+  docker:
+    web: Dockerfile
+    args:
+      REACT_APP_SERVER_URL: 'https://your-server-app-name.herokuapp.com'
+setup:
+  config:
+    # Set this to your server's URL in the Heroku dashboard
+    # e.g., https://your-server-app-name.herokuapp.com
+    REACT_APP_SERVER_URL: ''

@@ -4,20 +4,17 @@ import {
   AppBar,
   Toolbar,
   Typography,
-  Container,
   Grid,
-  Paper,
   Box,
-  TextField,
-  Button,
-  Alert,
 } from '@mui/material';
 import MatrixPaper from './MatrixPaper';
 import Sidebar from './Sidebar';
 import VideoFeed from './VideoFeed';
 import { callUser, handleOffer, handleAnswer, handleIceCandidate } from './webrtcUtils';
 
-const socket = io(`http://${window.location.hostname}:5000`);
+// Use environment variable for production, fallback to localhost for dev
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || `http://${window.location.hostname}:5000`;
+const socket = io(SERVER_URL);
 
 const App = () => {
   const [roomId, setRoomId] = useState(null);
@@ -63,6 +60,7 @@ const App = () => {
     socket.emit('join_room', { roomId, username });
     setMessages([]); // Clear chat when joining a new room
     setRemotes([]); // Clear remotes
+    peersRef.current.forEach((peer) => peer.close()); // Close existing connections to prevent leaks
     peersRef.current.clear(); // Clear peers
 
     // Chat Listeners
