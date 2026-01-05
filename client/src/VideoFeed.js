@@ -1,9 +1,9 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Box, Slider, Typography } from '@mui/material';
+import { Box, Slider, Typography, Button } from '@mui/material';
 import GlitchCanvas from './GlitchCanvas';
 import CRTDistortion from './CRTDistortion';
 
-const VideoFeed = ({ videoRef, stream, isMuted = false }) => {
+const VideoFeed = ({ videoRef, stream, isMuted = false, onToggleStream, isStreaming }) => {
   const [volume, setVolume] = useState(1);
   const internalRef = useRef(null);
   const ref = videoRef || internalRef;
@@ -45,6 +45,7 @@ const VideoFeed = ({ videoRef, stream, isMuted = false }) => {
         <GlitchCanvas />
       </Box>
       {/* Video Element */}
+      {stream && (
       <Box
         component="video"
         playsInline
@@ -56,6 +57,7 @@ const VideoFeed = ({ videoRef, stream, isMuted = false }) => {
           zIndex: 1, objectFit: 'cover', minHeight: '200px'
         }}
       />
+      )}
       {/* CRT Overlay (Vignette, Scanlines, Flicker) */}
       <Box sx={{
         position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -71,7 +73,14 @@ const VideoFeed = ({ videoRef, stream, isMuted = false }) => {
     </Box>
 
     {/* Volume Control */}
-    <Box sx={{ height: 150, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+    <Box sx={{ 
+      height: '337.5px', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'flex-end' 
+    }}>
+      <Box sx={{ height: 150, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', mt: 'auto', mb: 'auto' }}>
       <Slider
         orientation="vertical"
         value={volume}
@@ -99,6 +108,29 @@ const VideoFeed = ({ videoRef, stream, isMuted = false }) => {
       <Typography variant="caption" sx={{ fontFamily: 'var(--theme-font)', color: 'var(--theme-accent)', mt: 1 }}>
         VOL
       </Typography>
+      </Box>
+
+      {/* I/O Connect Button */}
+      {onToggleStream && (
+        <Button
+          onClick={onToggleStream}
+          disableRipple
+          sx={{
+            mb: 1,
+            minWidth: 'auto',
+            padding: 0,
+            color: isStreaming ? 'var(--theme-accent)' : 'var(--theme-secondary)',
+            transition: 'all 0.3s ease',
+            filter: isStreaming ? 'drop-shadow(0 0 5px var(--theme-accent))' : 'none',
+            '&:hover': { backgroundColor: 'transparent', color: 'var(--theme-accent)', filter: 'drop-shadow(0 0 5px var(--theme-accent))' }
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+            <line x1="12" y1="2" x2="12" y2="12" />
+          </svg>
+        </Button>
+      )}
     </Box>
     </Box>
   );

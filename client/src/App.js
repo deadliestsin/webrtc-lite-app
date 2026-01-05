@@ -27,7 +27,8 @@ const App = () => {
   const [newRoomName, setNewRoomName] = useState('');
   const [messages, setMessages] = useState([]);
   const [currentMessage, setCurrentMessage] = useState('');
-  const [streamError, setStreamError] = useState(null); // To show if camera failed
+  const [errorMessage, setErrorMessage] = useState(null); // To show errors (camera or room full)
+  const [roomCounts, setRoomCounts] = useState({}); // { 'General': 2, 'Tech': 1 }
   const [isInputFocused, setIsInputFocused] = useState(true);
   const [headerText, setHeaderText] = useState('777');
   
@@ -35,6 +36,23 @@ const App = () => {
   const [remotes, setRemotes] = useState([]); // Array of { username, stream }
   const peersRef = useRef(new Map()); // Map<username, RTCPeerConnection>
   const [mediaReady, setMediaReady] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+
+  // --- 0. GLOBAL SOCKET LISTENERS (Counts) ---
+  useEffect(() => {
+    socket.emit('get_counts'); // Request initial counts on load
+
+    socket.on('initial_room_counts', (counts) => {
+      setRoomCounts(counts);
+    });
+    socket.on('room_count_update', ({ roomId, count }) => {
+      setRoomCounts(prev => ({ ...prev, [roomId]: count }));
+    });
+    return () => {
+      socket.off('initial_room_counts');
+      socket.off('room_count_update');
+    };
+  }, []);
 
   // --- 1. SETUP SOCKETS & CHAT (Runs immediately, no camera needed) ---
   useEffect(() => {
@@ -63,29 +81,51 @@ const App = () => {
 
   // --- 2. SETUP MEDIA (Runs once on mount) ---
   useEffect(() => {
-    // Initialize Camera
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then((stream) => {
-          window.localStream = stream;
-          setLocalStream(stream);
-          setMediaReady(true);
-        })
-        .catch((err) => {
-          console.error("Error accessing media devices:", err);
-          setStreamError("No camera/mic found. Chat will work, video will not.");
-          setMediaReady(true);
-        });
-    } else {
-      setStreamError("Camera requires HTTPS. Video disabled.");
-      setMediaReady(true);
-    }
+    // We no longer auto-connect media. Just mark as ready to join chat.
+    setMediaReady(true);
   }, []);
+
+  const toggleStream = async () => {
+    if (isStreaming) {
+      // Stop Streaming
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      setLocalStream(null);
+      window.localStream = null;
+      setIsStreaming(false);
+
+      // Renegotiate with connected peers to remove the stream
+      peersRef.current.forEach((_, remoteUsername) => {
+         callUser(socket, roomId, username, remoteUsername, handleRemoteStream, peersRef);
+      });
+    } else {
+      // Start Streaming
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setLocalStream(stream);
+        window.localStream = stream;
+        setIsStreaming(true);
+        setErrorMessage(null);
+
+        // Renegotiate with connected peers to send them the new stream
+        peersRef.current.forEach((_, remoteUsername) => {
+           callUser(socket, roomId, username, remoteUsername, handleRemoteStream, peersRef);
+        });
+      } catch (err) {
+        console.error("Error accessing media devices:", err);
+        setErrorMessage("ERR_CAM_NOT_FOUND");
+      }
+    }
+  };
 
   // Helper to add remote stream
   const handleRemoteStream = (remoteUsername, stream) => {
     setRemotes(prev => {
-      if (prev.find(r => r.username === remoteUsername)) return prev;
+      const existing = prev.find(r => r.username === remoteUsername);
+      if (existing) {
+        return prev.map(r => r.username === remoteUsername ? { ...r, stream } : r);
+      }
       return [...prev, { username: remoteUsername, stream }];
     });
   };
@@ -93,6 +133,8 @@ const App = () => {
   // --- 3. SETUP WEBRTC SIGNALING (Runs when Room ID changes) ---
   useEffect(() => {
     if (!mediaReady || !roomId) return;
+    setErrorMessage(null); // Clear previous errors on join attempt
+
     socket.on('user_joined', async (newUsername) => {
       console.log("User joined room:", newUsername);
       setMessages((prev) => [...prev, { text: `${newUsername} joined the room`, sender: 'System' }]);
@@ -118,7 +160,7 @@ const App = () => {
 
     socket.on('offer', async (data) => {
       if (data.target !== username) return; // Ignore if not for me
-      if (peersRef.current.size >= 1) return; // Enforce limit on receiver side too
+      if (!peersRef.current.has(data.sender) && peersRef.current.size >= 1) return; // Enforce limit only for new peers
       handleOffer(data, socket, roomId, username, handleRemoteStream, peersRef);
     });
 
@@ -132,12 +174,18 @@ const App = () => {
       handleIceCandidate(data, peersRef);
     });
 
+    socket.on('room_full', () => {
+      setErrorMessage("ERR_ROOM_FULL: ACCESS DENIED");
+      setRoomId(null);
+    });
+
     return () => {
       socket.off('user_joined');
       socket.off('user_left');
       socket.off('offer');
       socket.off('answer');
       socket.off('ice_candidate');
+      socket.off('room_full');
     };
   }, [roomId, username, mediaReady]);
 
@@ -223,10 +271,23 @@ const App = () => {
           setNewRoomName={setNewRoomName}
           handleAddRoom={handleAddRoom}
           handleDeleteRoom={handleDeleteRoom}
+          roomCounts={roomCounts}
         />
 
         {/* Main Content */}
         <Grid item xs={9} sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
+          {errorMessage && (
+            <Box sx={{ mb: 2, p: 1, bgcolor: 'var(--theme-error)', boxShadow: '0 0 15px var(--theme-error)' }}>
+              <Typography variant="subtitle1" align="center" sx={{ 
+                fontFamily: 'var(--theme-font)', 
+                fontWeight: 'bold', 
+                color: '#000'
+              }}>
+                {errorMessage}
+              </Typography>
+            </Box>
+          )}
+
           {!roomId ? (
             <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <Typography variant="h2" sx={{ fontFamily: 'var(--theme-font)', color: 'var(--theme-accent)', mb: 2, textShadow: 'var(--theme-glow)' }}>
@@ -239,26 +300,19 @@ const App = () => {
           ) : (
             <>
           <Typography variant="h5" gutterBottom>
-            Room: {roomId}
+            Room: {roomId} <Typography component="span" variant="body2" sx={{ color: 'var(--theme-secondary)', fontFamily: 'var(--theme-font)' }}>[{roomCounts[roomId] || 1}/2]</Typography>
           </Typography>
-
-          {streamError && (
-            <Box sx={{ mb: 2, p: 1, bgcolor: 'var(--theme-error)', boxShadow: '0 0 15px var(--theme-error)' }}>
-              <Typography variant="subtitle1" align="center" sx={{ 
-                fontFamily: 'var(--theme-font)', 
-                fontWeight: 'bold', 
-                color: '#000'
-              }}>
-                ERR_CAM_NOT_FOUND
-              </Typography>
-            </Box>
-          )}
 
           {/* 2 Monitors Layout */}
           <Grid container spacing={1} justifyContent="center">
             {/* Monitor 1: Local User */}
             <Grid item>
-              <VideoFeed stream={localStream} isMuted={true} />
+              <VideoFeed 
+                stream={localStream} 
+                isMuted={true} 
+                onToggleStream={toggleStream}
+                isStreaming={isStreaming}
+              />
             </Grid>
             {/* Monitor 2: Remote User or Filler */}
             {remotes.length > 0 ? (

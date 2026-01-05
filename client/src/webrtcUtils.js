@@ -4,6 +4,7 @@ const rtcConfig = {
 
 export const createPeer = (socket, roomId, myUsername, targetUsername, onStream) => {
   const peer = new RTCPeerConnection(rtcConfig);
+  peer.iceCandidatesQueue = []; // Queue for candidates arriving before remote description
 
   peer.ontrack = (event) => {
     console.log("Stream received from remote peer");
@@ -34,6 +35,13 @@ export const createPeer = (socket, roomId, myUsername, targetUsername, onStream)
 
 export const callUser = async (socket, roomId, myUsername, targetUsername, onStream, peersRef) => {
   console.log(`Creating Offer for ${targetUsername}...`);
+  // Close existing peer connection if it exists to prevent conflicts
+  if (peersRef.current.has(targetUsername)) {
+    peersRef.current.get(targetUsername).close();
+  }
+
+  onStream(targetUsername, null); // Reset stream to show No Signal
+
   const peer = createPeer(socket, roomId, myUsername, targetUsername, onStream);
   peersRef.current.set(targetUsername, peer);
 
@@ -46,12 +54,24 @@ export const callUser = async (socket, roomId, myUsername, targetUsername, onStr
 export const handleOffer = async (data, socket, roomId, myUsername, onStream, peersRef) => {
   const sender = data.sender;
   console.log(`Received Offer from ${sender}, creating Answer...`);
+
+  // Close existing peer connection if it exists
+  if (peersRef.current.has(sender)) {
+    peersRef.current.get(sender).close();
+  }
   
+  onStream(sender, null); // Reset stream to show No Signal
+
   const peer = createPeer(socket, roomId, myUsername, sender, onStream);
   peersRef.current.set(sender, peer);
 
   await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
-  // Note: In a robust app, we would handle queued candidates here if they arrived before offer
+  
+  // Process queued candidates
+  while (peer.iceCandidatesQueue.length > 0) {
+    const candidate = peer.iceCandidatesQueue.shift();
+    peer.addIceCandidate(candidate).catch(e => console.error("Error adding queued candidate:", e));
+  }
 
   const answer = await peer.createAnswer();
   await peer.setLocalDescription(answer);
@@ -66,6 +86,12 @@ export const handleAnswer = (data, peersRef) => {
   if (currentPeer && currentPeer.signalingState === 'have-local-offer') {
     console.log(`Received Answer from ${sender}`);
     currentPeer.setRemoteDescription(new RTCSessionDescription(data.sdp))
+      .then(() => {
+        while (currentPeer.iceCandidatesQueue.length > 0) {
+          const candidate = currentPeer.iceCandidatesQueue.shift();
+          currentPeer.addIceCandidate(candidate).catch(e => console.error("Error adding queued candidate:", e));
+        }
+      })
       .catch(err => console.error("Failed to set remote answer:", err));
   }
 };
@@ -75,11 +101,11 @@ export const handleIceCandidate = (data, peersRef) => {
   const currentPeer = peersRef.current.get(sender);
 
   if (currentPeer) {
-    if (currentPeer.remoteDescription) {
+    if (currentPeer.remoteDescription && currentPeer.remoteDescription.type) {
       currentPeer.addIceCandidate(data.candidate)
         .catch(e => console.error("Error adding candidate:", e));
+    } else {
+      currentPeer.iceCandidatesQueue.push(data.candidate);
     }
-    // Note: Queueing logic omitted for brevity in mesh refactor, 
-    // but ideally should exist if candidates arrive before remote desc.
   }
 };

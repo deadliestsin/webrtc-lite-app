@@ -1,12 +1,16 @@
 import React from 'react';
-import { List, ListItem, ListItemButton, ListItemText } from '@mui/material';
+import { List, ListItem, ListItemButton, ListItemText, Typography, Box } from '@mui/material';
 import MatrixButton from './MatrixButton';
 
-const RoomList = ({ rooms, roomId, setRoomId, handleDeleteRoom }) => {
+const RoomList = ({ rooms, roomId, setRoomId, handleDeleteRoom, roomCounts }) => {
   return (
     <List sx={{ flexGrow: 1, overflow: 'auto' }}>
       {rooms.map((room) => (
         <ListItem key={room} disablePadding secondaryAction={
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+            <Typography variant="body1" sx={{ color: 'var(--theme-accent)', fontFamily: 'var(--theme-font)', mr: 2, fontWeight: 'bold' }}>
+              {roomCounts[room] || 0}/2
+            </Typography>
           <MatrixButton 
             size="small" 
             onClick={() => handleDeleteRoom(room)} 
@@ -25,6 +29,7 @@ const RoomList = ({ rooms, roomId, setRoomId, handleDeleteRoom }) => {
           >
             X
           </MatrixButton>
+          </Box>
         }>
           <ListItemButton 
             selected={roomId === room} 
@@ -38,7 +43,10 @@ const RoomList = ({ rooms, roomId, setRoomId, handleDeleteRoom }) => {
               '&:hover': { bgcolor: 'var(--theme-bg-hover)' }
             }}
           >
-            <ListItemText primary={room} primaryTypographyProps={{ fontFamily: 'var(--theme-font)', color: 'var(--theme-accent)' }} />
+            <ListItemText 
+              primary={room} 
+              primaryTypographyProps={{ fontFamily: 'var(--theme-font)', color: 'var(--theme-accent)' }} 
+            />
           </ListItemButton>
         </ListItem>
       ))}

@@ -14,7 +14,8 @@ const Sidebar = ({
   newRoomName,
   setNewRoomName,
   handleAddRoom,
-  handleDeleteRoom
+  handleDeleteRoom,
+  roomCounts
 }) => {
   return (
     <Grid item xs={3} sx={{ borderRight: '1px solid var(--theme-accent)', bgcolor: 'var(--theme-bg)', display: 'flex', flexDirection: 'column' }}>
@@ -28,6 +29,7 @@ const Sidebar = ({
         roomId={roomId} 
         setRoomId={setRoomId} 
         handleDeleteRoom={handleDeleteRoom} 
+        roomCounts={roomCounts}
       />
       <AddRoomForm 
         newRoomName={newRoomName} 
